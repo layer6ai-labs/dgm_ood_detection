@@ -37,3 +37,7 @@ conda env create -f env.yml
 conda activate ood-detection
 ```
 
+## Reproducibility Statement
+
+We have an [old guide](./old.md) for reproducing our results. However, we have refactored the entire codebase and now included it in our [new repository](https://github.com/layer6ai-labs/dgm_geometry). We recommend using that version of our codebase in case you want to run our OOD detection approach.
+
