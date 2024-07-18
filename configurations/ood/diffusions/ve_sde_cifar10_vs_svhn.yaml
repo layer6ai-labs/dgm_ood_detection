@@ -1,0 +1,47 @@
+base_model:
+  config_dir: checkpoints-8bvxmd33/1_-_-_-_khve3tr9/run_config.json
+  checkpoint_dir: checkpoints-8bvxmd33/1_-_-_-_khve3tr9/checkpoints/de_VESDE_Diffusion_latest.pt
+data:
+  # specify the datasets and dataloader configurations for the in and out of distribution data.
+  in_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: cifar10
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: train
+  out_of_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: svhn
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: test
+ood:
+  # bypass the entire visualization process since there is no need to plot the histograms that take time!
+  bypass_visualization: False
+  histogram_limit: 64
+  samples_visualization: 1
+  sampling_kwargs:
+    steps: 1000
+    eps: 0.01
+
+  # for reproducibility
+  seed: 50
+
+  log_prob_kwargs:
+    steps: 25
+    verbose: 0
+    trace_calculation_kwargs:
+      method: hutchinson_rademacher
+      sample_count: 10
+  # The OOD detection method in use
+  method: null
+
+  
+logger:
+  project: ood-detection-sanity-checks
+  entity: platypus-dgm
+  name: ve_sde_likelihood_vs_LID_cifar10_vs_svhn

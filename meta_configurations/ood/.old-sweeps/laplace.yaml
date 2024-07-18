@@ -1,0 +1,176 @@
+project: laplace-dysweep
+entity: platypus-dgm
+default_root_dir: experiments/ood/sweeps
+count: 10000
+
+# BASE configuration which is being used
+base_config:
+  ood:
+    pick_single: False
+    use_dataloader: True
+    seed: 10
+    method: ood.methods.laplace.Laplace
+    method_args:
+      progress_bar: True
+      data_limit: 15
+      # TODO: this should be fixed!
+      use_functorch: False
+      use_local_optimization: False
+      bincount: 5
+  data:
+    seed: 10
+
+sweep_configuration:
+  method: grid
+  metric:
+    goal: minimize
+    name: nll
+  parameters:
+    ood:
+      method_args:
+        dy__upsert:
+          - sweep: True
+            sweep_identifier: Z_representation_rank
+            sweep_alias:
+            - input
+            - deep
+            values:
+            - representation_rank: null
+            - representation_rank: 43
+          - sweep: True
+            sweep_identifier: Z_Score_Type
+            sweep_alias:
+            - ignore_negative
+            - slice_left
+            - slice_tails
+            values:
+            - score_type: ignore_negative
+            - score_type: ignore_tails
+              score_args:
+                factor_left: 0.15
+            - score_type: ignore_tails
+              score_args:
+                factor_left: 0.15
+                factor_right: 0.1
+          - sweep: True
+            sweep_identifier: Z_correction_coeff
+            sweep_alias:
+            - no_correction
+            - unit_correction
+            - large_correction
+            - extremely_large_correction
+            values:
+            - correction_coefficient: 0.0
+            - correction_coefficient: 1.0
+            - correction_coefficient: 10.0
+            - correction_coefficient: 100.0
+
+
+    dy__upsert:
+      - sweep: True
+        sweep_identifier: B_dataset
+        sweep_alias:
+          - flow_fmnist
+          - flow_cifar10
+          - flow_svhn
+          - flow_mnist
+        values:
+          - base_model:
+              run_dir: runs/flow_fmnist
+              config_dir: experiments/training/flow_elaborate_fmnist.yaml
+              checkpoint_dir: runs/flow_fmnist/checkpoints/de_nf_latest.pt
+          - base_model:
+              run_dir: runs/flow_cifar10
+              config_dir: experiments/training/flow_elaborate_cifar10.yaml
+              checkpoint_dir: runs/flow_cifar10/checkpoints/de_nf_latest.pt
+          - base_model:
+              run_dir: runs/flow_svhn
+              config_dir: experiments/training/flow_elaborate_svhn.yaml
+              checkpoint_dir: runs/flow_svhn/checkpoints/de_nf_latest.pt
+          - base_model:
+              run_dir: runs/flow_mnist
+              config_dir: experiments/training/flow_elaborate_mnist.yaml
+              checkpoint_dir: runs/flow_mnist/checkpoints/de_nf_latest.pt
+          
+      - sweep: True
+        sweep_identifier: C_ood_or_not
+        sweep_alias:
+          - ood_for_test
+          - in_distr_for_test
+        values:
+          - data:
+              in_distribution:
+                dataloader_args:
+                  dataset:
+                    dy__eval:
+                      expression: |
+                        from pprint import pprint
+
+                        def func(conf):
+
+                          last_part = conf['base_model']['run_dir'].split('_')[-1]
+                          if last_part == 'fmnist':
+                            return 'fashion-mnist'
+                          if last_part == 'cifar10':
+                            return 'cifar10'
+                          if last_part == 'mnist':
+                            return 'mnist'
+                          if last_part == 'svhn':
+                            return 'svhn'
+                      function_of_interest: func
+              out_of_distribution:
+                dataloader_args:
+                  dataset:
+                    dy__eval:
+                      expression: |
+                        from pprint import pprint
+
+                        def func(conf):
+
+                          last_part = conf['base_model']['run_dir'].split('_')[-1]
+                          if last_part == 'fmnist':
+                            return 'mnist'
+                          if last_part == 'cifar10':
+                            return 'svhn'
+                          if last_part == 'mnist':
+                            return 'fashion-mnist'
+                          if last_part == 'svhn':
+                            return 'cifar10'
+                      function_of_interest: func
+          - data:
+              in_distribution:
+                dataloader_args:
+                  dataset:
+                    dy__eval:
+                      expression: |
+                        from pprint import pprint
+                        def func(conf):
+
+                          last_part = conf['base_model']['run_dir'].split('_')[-1]
+                          if last_part == 'fmnist':
+                            return 'fashion-mnist'
+                          if last_part == 'cifar10':
+                            return 'cifar10'
+                          if last_part == 'mnist':
+                            return 'mnist'
+                          if last_part == 'svhn':
+                            return 'svhn'
+                      function_of_interest: func
+              out_of_distribution:
+                dataloader_args:
+                  dataset:
+                    dy__eval:
+                      expression: |
+                        from pprint import pprint
+
+                        def func(conf):
+                          last_part = conf['base_model']['run_dir'].split('_')[-1]
+                          if last_part == 'fmnist':
+                            return 'fashion-mnist'
+                          if last_part == 'cifar10':
+                            return 'cifar10'
+                          if last_part == 'mnist':
+                            return 'mnist'
+                          if last_part == 'svhn':
+                            return 'svhn'
+                      function_of_interest: func

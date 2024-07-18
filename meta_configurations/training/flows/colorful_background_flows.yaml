@@ -1,0 +1,272 @@
+# This sweep contains all the flow model training modules that are used for the Likelihood ratio method (Ren et al.)
+# It trains all the "RGB" flow models on the colorful images of size [3 x 32 x 32]
+
+project: training-dgms
+entity: platypus-dgm
+sweep_name: colorful_flows_background
+count: 10000
+delete_checkpoints: False
+
+# Change the name of the run to [flow_type]_[dataset_type]_[previous_run_name]
+run_name_changer:
+  expression: |
+    from meta_configurations import * 
+  function_of_interest: change_name
+
+# BASE configuration which is being used
+base_config:
+  data:
+    make_valid_loader: true
+    train_batch_size: 128
+    valid_batch_size: 128
+    test_batch_size: 128
+
+  trainer:
+    trainer_cls: model_zoo.trainers.single_trainer.SingleTrainer
+    optimizer:
+      class_path: torch.optim.AdamW
+      init_args:
+        lr: 0.001
+      lr_scheduler:
+        class_path: torch.optim.lr_scheduler.ExponentialLR
+        init_args:
+          gamma: 0.99
+    writer:
+      tag_group: flow
+      type: wandb
+      entity: platypus-dgm
+      project: training-dgms
+      
+
+    sample_freq: 1 # logs the samples after every two epochs
+    max_epochs: 100
+    early_stopping_metric: loss
+    max_bad_valid_epochs: 100
+    max_grad_norm: 1.0
+    progress_bar: True
+      
+
+  # Settings from the new configurations
+  model:
+    class_path: model_zoo.density_estimator.flow.NormalizingFlow
+    init_args:
+      # Data transform args (they are here because they might influence log_prob)
+      flatten: False
+      data_shape: [3, 32, 32]
+      denoising_sigma: null
+      dequantize: True
+      scale_data: True
+      whitening_transform: False
+      background_augmentation: 0.3
+      
+      # with flow_logit_transform, it also get's included in the log_prob
+      logit_transform: True
+
+      clamp_samples: False
+
+      # Base distribution arguments (in this work the base is always Gaussian)
+      base_distribution:
+        class_path: nflows.distributions.StandardNormal
+        init_args:
+          shape: [3072]
+      
+      
+      # The actual transformations of the flow
+      transform:
+      ######################################################################### 
+      ###### First level
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 2 # turns the image into [12, 16, 16]
+      - repeat_n: 3
+        content:
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 12 # Apply activation normalization to all the channels
+        - class_path: nflows.transforms.conv.OneByOneConvolution
+          init_args: 
+            num_channels: 12
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweeps
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 64
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 12
+              flip: True
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 12 # Apply activation normalization to all the channels
+        - class_path: nflows.transforms.conv.OneByOneConvolution
+          init_args: 
+            num_channels: 12
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweep
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 64
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 12
+              flip: False
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args: 
+          num_channels: 12
+        multiscale:
+          transform_output_shape: [12, 16, 16]
+      ###########################################################################
+      ##### Second Level
+      # squeeze
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 2 # turns the image into [24, 8, 8]
+      - repeat_n: 3
+        content:
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 24 # Apply activation normalization to all the channels
+        - class_path: nflows.transforms.conv.OneByOneConvolution
+          init_args: 
+            num_channels: 24
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweeps
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 64
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 24
+              flip: True
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 24 # Apply activation normalization to all the channels
+        - class_path: nflows.transforms.conv.OneByOneConvolution
+          init_args: 
+            num_channels: 24
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweeps
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 64
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 24
+              flip: False
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args: 
+          num_channels: 24
+        multiscale:
+          transform_output_shape: [24, 8, 8]
+      ###########################################################################
+      ##### Third Level
+      # squeeze
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 8 # turns the image into [768, 1, 1]
+      - repeat_n: 2
+        content:
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 768 # Apply activation normalization to all the channels
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweeps
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 1024
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 768
+              flip: True
+        - class_path: nflows.transforms.normalization.ActNorm
+          init_args:
+            features: 768 # Apply activation normalization to all the channels
+        - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+          init_args: 
+            # set in the sweeps
+            coupling_transform_cls: null
+            net:
+              class_path: nflows.nn.nets.resnet.ConvResidualNet
+              init_args:
+                hidden_channels: 1024
+                num_blocks: 2
+                activation: torch.nn.functional.relu
+                dropout_probability: 0.2
+                use_batch_norm: False
+            mask:
+              dim: 768
+              flip: false
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args: 
+          num_channels: 768
+        multiscale:
+          transform_output_shape: [768, 1, 1]
+    
+
+sweep_configuration:
+  data:
+    dataset:
+      sweep_identifier: B_dataset
+      sweep: True
+      values: ['celeba-small', 'cifar10', 'cifar100', 'tiny-imagenet', 'svhn', 'celeba']
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: A_flow_type
+      sweep_alias:
+      - rq_nsf
+      - glow
+      values:
+      - dy__eval:
+          expression: |
+            from meta_configurations import change_coupling_layers
+            def turn_into_rq_nsf(conf):
+              return  change_coupling_layers(
+                            conf, 
+                            'PiecewiseRationalQuadraticCouplingTransform',
+                            additional_args = {
+                              'tails': 'linear',
+                              'num_bins': 8,
+                              'tail_bound': 1.0,
+                            }
+                      )
+          function_of_interest: turn_into_rq_nsf
+      - dy__eval:
+          expression: |
+            from meta_configurations import change_coupling_layers
+            def turn_into_glow(conf):
+              return  change_coupling_layers(
+                            conf, 
+                            'AffineCouplingTransform'
+                      )
+          function_of_interest: turn_into_glow
+

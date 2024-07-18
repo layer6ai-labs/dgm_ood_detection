@@ -1,0 +1,69 @@
+base_model:  
+  config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/run_config.json
+  checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/checkpoints/de_nf_best_valid.pt
+data:
+  # specify the datasets and dataloader configurations for the in and out of distribution data.
+  in_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: svhn
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: train
+  out_of_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: cifar10
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: test
+ood:
+  # bypass the entire visualization process since there is no need to plot the histograms that take time!
+  bypass_visualization: True
+  
+  # for reproducibility
+  seed: 100
+
+  use_dataloader: True
+  pick_count: 5
+
+  # The OOD detection method in use
+  method: ood.intrinsic_dimension.LID_OOD
+  method_args:
+    # ----- LID estimator configuration -----
+    lid_calculator_class: lid.flows.ThresholdSVDFlowLIDEstimator
+    lid_calculator_args:
+      # --- Jacobian Flow Configuration ---
+      flow_jacobian_calculator_class: lid.flows.jacobian_calculator.FlowJacobianCalculator
+      flow_jacobian_calculator_kwargs:
+        use_vmap: False
+        use_functorch: True
+        use_forward_mode: True
+        chunk_size: 1
+        verbose: 1
+        diff_transform: False
+      # set the lid calculator
+      verbose: 2
+      ambient_dim: 3072 # 32x32x3
+
+    # ----- OOD detection configuration -----
+    # verbosity
+    verbose: 1
+    checkpointing_buffer: 2
+    # Hyper-parameters relating to the scale parameter that is being computed
+    scale_selection_algorithm: given_from_model_free
+    scale_selection_algorithm_args:
+      model_free_dimension: 40
+      l_scale: -100
+      r_scale: 100
+      bin_search_steps: 20
+
+    training_buffer_size: 16
+
+  
+logger:
+  project: ood-detection-single-runs
+  entity: platypus-dgm
+  name: svhn_vs_cifar10_ood

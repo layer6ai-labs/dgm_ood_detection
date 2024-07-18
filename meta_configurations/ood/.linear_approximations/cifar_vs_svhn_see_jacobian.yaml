@@ -1,0 +1,128 @@
+# In this set of experiments
+# I consider a flow model on svhn or cifar and run the analytical Gaussian convolution
+# method on the models with in and out of distribution datasets and plot the convolution values I obtain
+# No sampling is done in this sweep for fast computation
+project: linear-approximations
+sweep_name: see-jacobian
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+    # for reproducibility
+    seed: 10
+  ood:
+    # to bypass or not to bypass
+    bypass_visualization: True
+
+    pick_single: False
+    use_dataloader: True
+    seed: 100
+    histogram_limit: 2000
+    pick_count: 12
+
+    # The degree of visualization for samples
+    samples_visualization: 2
+    
+    # The OOD detection method in use
+    method: ood.methods.linear_approximations.SeeJacobian
+    method_args:
+
+      verbose: 2
+      
+      encoding_model_class: ood.methods.linear_approximations.EncodingFlow
+      encoding_model_args:
+        chunk_size: 1
+        use_functorch: True
+        use_forward_mode: True
+        use_vmap: False
+        verbose: 2
+
+      
+
+sweep_configuration:
+
+  dy__upsert:
+    - ood:
+        method_args:
+          visualization_args:
+            with_std: 
+              sweep: True
+              values: [False, True]
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # colorful flows
+        - flow_cifar10_RQ_NSF
+        - flow_svhn_RQ_NSF
+      values:
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        
+    - data:
+        out_of_distribution:
+          pick_loader: test
+          dataloader_args:
+            dy__upsert:
+              - sweep: True
+                sweep_identifier: ood_picker
+                sweep_alias:
+                - svhn
+                - cifar10
+                - generated
+                values:
+                - dataset: svhn
+                - dataset: cifar10
+                - dy__eval:
+                    expression: |
+                      from meta_configurations import get_generated_config
+
+                      def pick_generated(conf):
+                        return get_generated_config(conf)
+
+                    function_of_interest: pick_generated

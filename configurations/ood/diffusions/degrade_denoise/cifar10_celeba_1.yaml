@@ -1,0 +1,46 @@
+base_model:
+  config_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/run_config.json
+  checkpoint_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+data:
+  # specify the datasets and dataloader configurations for the in and out of distribution data.
+  in_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: cifar10
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: train
+  out_of_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: celeba
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: test
+ood:
+  # bypass the entire visualization process since there is no need to plot the histograms that take time!
+  bypass_visualization: True
+  
+  # for reproducibility
+  seed: 100
+
+  use_dataloader: True
+  pick_count: 1
+
+  # The OOD detection method in use
+  method: ood.reconstruction.DegradeDenoise
+  method_args:
+    num_time_steps: 20
+    steps: 50
+    validation_size: 1
+    methods_to_include: ['l2', 'lpips']
+    verbose: 3
+    gamma: 1
+
+  
+logger:
+  project: ood-detection-single-runs
+  entity: platypus-dgm
+  name: cifar10_vs_celeba_small_degrade_denoise_ood

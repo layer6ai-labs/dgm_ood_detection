@@ -1,0 +1,165 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: rgb_degrade_denoise_diffusion
+entity: platypus-dgm
+count: 10000
+method: grid
+
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: test
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+  
+
+    # for reproducibility
+    seed: 100
+    
+    # The OOD detection method in use
+    method: ood.reconstruction.DegradeDenoise
+    method_args:
+      num_time_steps: 100
+      steps: 10
+      validation_size: 1
+      methods_to_include: ['l2', 'lpips']
+      verbose: 2
+      gamma: 1
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # colorful diffusions
+        - VPSDE_cifar10
+        - VPSDE_svhn
+        - VPSDE_cifar100
+        - VPSDE_tiny
+        - VPSDE_celeba_small
+      values:
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_svhn_regretless_ixiwzx2l_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_svhn_regretless_ixiwzx2l_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_cifar100_acemetic_avmihhcs_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_cifar100_acemetic_avmihhcs_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar100
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_tiny-imagenet_autolavage_84hvhvrz_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_tiny-imagenet_autolavage_84hvhvrz_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: tiny-imagenet
+        
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_celeba-small_petroleum_uhtqybca_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_celeba-small_petroleum_uhtqybca_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: celeba-small
+
+    - sweep: True
+      sweep_identifier: C_ood_picker
+      sweep_alias:
+      - generated
+      - svhn
+      - cifar10
+      - celeba-small
+      - celeba
+      - tiny-imagenet
+      - cifar100
+      values:
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dy__eval:
+                  expression: |
+                    from meta_configurations import get_generated_config
+
+                    def pick_generated(conf):
+                      return get_generated_config(conf)
+
+                  function_of_interest: pick_generated
+
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: svhn
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar10
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba-small
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: tiny-imagenet
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar100
+    - sweep: True
+      sweep_identifier: A_subsample_size # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+        - tiny
+        - medium
+        - huge
+      values:
+        - ood:
+            use_dataloader: True
+            pick_count: 1
+        - ood:
+            use_dataloader: True
+            pick_count: 4
+        - ood:
+            use_dataloader: True
+            pick_count: 32

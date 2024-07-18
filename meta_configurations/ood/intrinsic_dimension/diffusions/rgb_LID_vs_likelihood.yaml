@@ -1,0 +1,208 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: rgb_LID_vs_likelihood_diffusion
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: test
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+  
+
+    # for reproducibility
+    seed: 100
+    
+    # The OOD detection method in use
+    method: ood.intrinsic_dimension.LID_OOD
+    method_args:
+      # ----- LID estimator configuration -----
+      lid_calculator_class: lid.diffusions.NormalBundleLIDEstimator
+      lid_calculator_args:
+          noise_time: 0.01
+          num_scores: null # use 4D
+          chunk_size: 128
+          verbose: 2
+          ambient_dim: 3072 # 3x32x32
+      # ----- Likelihood Estimator Configuration -----
+      likelihood_computation_args:
+          eps: 0.01
+          steps: 25
+          trace_calculation_kwargs:
+              method: hutchinson_rademacher 
+              sample_count: 25
+              parallel_batch_size: 128
+              verbose: 0
+          verbose: 1
+      # ----- OOD detection configuration -----
+      # verbosity
+      verbose: 1
+      checkpointing_buffer: 2
+      # Hyper-parameters relating to the scale parameter that is being computed
+      scale_selection_algorithm: given_from_model_free
+      scale_selection_algorithm_args:
+        l_scale: -100
+        r_scale: 100
+        bin_search_steps: 100
+
+      training_buffer_size: 1
+
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # colorful diffusions
+        - VPSDE_cifar10
+        - VPSDE_svhn
+        - VPSDE_cifar100
+        - VPSDE_tiny
+        - VPSDE_celeba_small
+      values:
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_cifar10_distinctions_aep6z5pr_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+          ood:
+            method_args:
+              scale_selection_algorithm_args:
+                model_free_dimension: 193 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_svhn_regretless_ixiwzx2l_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_svhn_regretless_ixiwzx2l_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+          ood:
+            method_args:
+              scale_selection_algorithm_args:
+                model_free_dimension: 60 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_cifar100_acemetic_avmihhcs_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_cifar100_acemetic_avmihhcs_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar100
+          ood:
+            method_args:
+              scale_selection_algorithm_args:
+                model_free_dimension: 165 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_tiny-imagenet_autolavage_84hvhvrz_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_tiny-imagenet_autolavage_84hvhvrz_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: tiny-imagenet
+          ood:
+            method_args:
+              scale_selection_algorithm_args:
+                model_free_dimension: 207 # Obtained by LPCA with threshold 0.001
+        
+        - base_model:
+            config_dir: checkpoints-znod8v3z/diffusion_celeba-small_petroleum_uhtqybca_final/run_config.json
+            checkpoint_dir: checkpoints-znod8v3z/diffusion_celeba-small_petroleum_uhtqybca_final/checkpoints/de_score-based-VP-diffusion_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: celeba-small
+          ood:
+            method_args:
+              scale_selection_algorithm_args:
+                model_free_dimension: 169 # Obtained by LPCA with threshold 0.001
+
+    - sweep: True
+      sweep_identifier: C_ood_picker
+      sweep_alias:
+      - generated
+      - svhn
+      - cifar10
+      - celeba-small
+      - celeba
+      - tiny-imagenet
+      - cifar100
+      values:
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dy__eval:
+                  expression: |
+                    from meta_configurations import get_generated_config
+
+                    def pick_generated(conf):
+                      return get_generated_config(conf)
+
+                  function_of_interest: pick_generated
+
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: svhn
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar10
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba-small
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: tiny-imagenet
+        - data:
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar100
+    - sweep: True
+      sweep_identifier: A_subsample_size # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+        - tiny
+        - medium
+        - huge
+      values:
+        - ood:
+            use_dataloader: True
+            pick_count: 1
+        - ood:
+            use_dataloader: True
+            pick_count: 4
+        - ood:
+            use_dataloader: True
+            pick_count: 256

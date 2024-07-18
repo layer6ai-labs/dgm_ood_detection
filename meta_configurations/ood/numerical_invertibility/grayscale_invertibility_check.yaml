@@ -1,0 +1,232 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: grayscale_invertibility_check
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+    
+    # for reproducibility
+    seed: 100
+    # the number of batches under consideration -> Makes a total of 1024 datapoints
+    
+    pick_count: 128
+    
+    # The OOD detection method in use
+    method: ood.methods.intrinsic_dimension.ReconstructionCheck
+    method_args:
+      # Fast-LIDL-NF
+      encoding_model_class: ood.methods.intrinsic_dimension.EncodingFlow
+      encoding_model_args:
+        use_functorch: True 
+        use_forward_mode: True
+        use_vmap: False
+        chunk_size: 1
+        verbose: 2
+        # control whether the encoding model also handles the data transform
+        diff_transform: False
+      
+      visualization_nrow: 4
+      
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # grayscale flows (Glow and RQ_NSF)
+        - flow_mnist_RQ_NSF
+        - flow_fmnist_RQ_NSF
+        - flow_omniglot_RQ_NSF
+        - flow_emnist_RQ_NSF
+        # neural spline flows
+        - flow_mnist_Glow
+        - flow_fmnist_Glow
+        - flow_omniglot_Glow
+        - flow_emnist_Glow
+      values:
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_mnist_agenizing_xhkxy2eu_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_mnist_agenizing_xhkxy2eu_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_fashion-mnist_barroom_sax6meoj_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_fashion-mnist_barroom_sax6meoj_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_omniglot_polysynthetic_v816f4eg_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_omniglot_polysynthetic_v816f4eg_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: omniglot
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_emnist_papillous_jr5k61wg_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_emnist_papillous_jr5k61wg_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: emnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        # 
+        - base_model:
+            config_dir: checkpoints-443rgkyn/AffineCouplingTransform_mnist_unforgettably_6a8il0rr_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/AffineCouplingTransform_mnist_unforgettably_6a8il0rr_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/AffineCouplingTransform_fashion-mnist_spritzer_ahbuahyr_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/AffineCouplingTransform_fashion-mnist_spritzer_ahbuahyr_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/AffineCouplingTransform_omniglot_sarcophaguses_24z9ios4_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/AffineCouplingTransform_omniglot_sarcophaguses_24z9ios4_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: omniglot
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/AffineCouplingTransform_emnist_josey_zkejz05t_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/AffineCouplingTransform_emnist_josey_zkejz05t_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: emnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+    - sweep: True
+      sweep_identifier: ood_picker
+      sweep_alias:
+      - generated
+      - mnist
+      - fashion-mnist
+      - omniglot
+      - emnist
+      values:
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dy__eval:
+                expression: |
+                  from meta_configurations import get_generated_config
+
+                  def pick_generated(conf):
+                    return get_generated_config(conf)
+
+                function_of_interest: pick_generated
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: mnist
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: fashion-mnist
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: omniglot
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: emnist
+    - data:
+        out_of_distribution:
+          pick_loader:
+            sweep: True
+            values: [train, test]

@@ -1,0 +1,126 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: grayscale_sampling
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      pick_loader: test
+      dataloader_args:
+        make_valid_loader: false
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+    
+    # for reproducibility
+    seed: 100
+    # the number of batches under consideration -> Makes a total of 1024 datapoints
+    
+    pick_count: 2
+    
+    # The OOD detection method in use
+    method: ood.sampling.ProbabilityMassSampling
+    method_args:
+      
+      # verbosity
+      verbose: 2
+      
+      # The lp ball
+      p: 2.0
+
+      radii_range: [0.001, 0.2]
+      radii_n: 200
+
+      sample_count: 100
+      with_std: True
+      
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # grayscale flows (Glow and RQ_NSF)
+        - flow_mnist_RQ_NSF
+        - flow_fmnist_RQ_NSF
+      values:
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_mnist_agenizing_xhkxy2eu_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_mnist_agenizing_xhkxy2eu_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_fashion-mnist_barroom_sax6meoj_final/run_config.json
+            checkpoint_dir: checkpoints-443rgkyn/PiecewiseRationalQuadraticCouplingTransform_fashion-mnist_barroom_sax6meoj_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        
+    - sweep: True
+      sweep_identifier: Z_ood_picker
+      sweep_alias:
+      - mnist
+      - fashion-mnist
+      - omniglot
+      - generated
+      values:
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: mnist
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: fashion-mnist
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: omniglot
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dy__eval:
+                expression: |
+                  from meta_configurations import get_generated_config
+
+                  def pick_generated(conf):
+                    return get_generated_config(conf)
+
+                function_of_interest: pick_generated

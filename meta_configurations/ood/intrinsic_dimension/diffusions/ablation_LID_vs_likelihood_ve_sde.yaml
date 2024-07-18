@@ -1,0 +1,272 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: ablation_LID_vs_likelihood_diffusion_ve_sde
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+        additional_dataset_args:
+          resize_image: [32, 32]
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: test
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+  
+
+    # for reproducibility
+    seed: 100
+    
+    # The OOD detection method in use
+    method: ood.methods.intrinsic_dimension.diffusion_method.DiffusionIntrinsicDimensionOODDetection
+    method_args:
+      checkpointing_buffer: 16
+      intrinsic_dimension_calculator_args:
+        num_samples: 500
+        eps: 0.01
+        max_batch_size: 128
+      log_prob_kwargs:
+        steps: 25
+        verbose: 0
+        trace_calculation_kwargs:
+          method: hutchinson_rademacher
+          sample_count: 10
+      # for logging args
+      verbose: 1
+      
+      # Hyper-parameters relating to the scale parameter that is being computed
+      evaluate_r: -20
+      adaptive_measurement: True
+      adaptive_train_data_buffer_size: 1 
+      bin_search_iteration_count: 10
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_task
+      sweep_alias:
+        # grayscale diffusions (Glow and RQ_NSF)
+        - mnist_vs_mnist
+        - mnist_vs_fmnist
+        - mnist_vs_omniglot
+        - fmnist_vs_fmnist
+        - fmnist_vs_mnist
+        - fmnist_vs_omniglot
+        - cifar10_vs_cifar10 
+        - cifar10_vs_svhn
+        - cifar10_vs_celeba
+        - svhn_vs_svhn
+        - svhn_vs_cifar10
+        - svhn_vs_celeba
+      values:
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: mnist
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 335 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 335 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_mnist_undiscernibleness_p2oqy5i2_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: omniglot
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 335 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 245 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: mnist
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 245 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/run_config.json
+            checkpoint_dir: checkpoints-nyigwix7/diffusion_fashion-mnist_ofter_gjry9qpu_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+            out_of_distribution:
+              dataloader_args:
+                dataset: omniglot
+                additional_dataset_args:
+                  resize_image: [32, 32]
+          ood:
+            method_args:
+              given_mean_lid: 245 # Obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar10
+          ood:
+            method_args:
+              given_mean_lid: 193 # obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+            out_of_distribution:
+              dataloader_args:
+                dataset: svhn
+          ood:
+            method_args:
+              given_mean_lid: 193 # obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_cifar10_dihydrochloride_lq94s3us_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba-small
+          ood:
+            method_args:
+              given_mean_lid: 193 # obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+            out_of_distribution:
+              dataloader_args:
+                dataset: svhn
+          ood:
+            method_args:
+              given_mean_lid: 60 # obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+            out_of_distribution:
+              dataloader_args:
+                dataset: cifar10
+          ood:
+            method_args:
+              given_mean_lid: 60 # obtained by LPCA with threshold 0.001
+        - base_model:
+            config_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/run_config.json
+            checkpoint_dir: checkpoints-onc23163/diffusion_svhn_cobblestone_spdeyuzd_final/checkpoints/de_VESDE_Diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+            out_of_distribution:
+              dataloader_args:
+                dataset: celeba-small
+          ood:
+            method_args:
+              given_mean_lid: 60 # obtained by LPCA with threshold 0.001
+
+    - sweep: True
+      sweep_identifier: A_subsample_size # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+      - tiny
+      - medium
+      - hugeS
+      values:
+      - ood:
+          use_dataloader: True
+          pick_count: 4
+      - ood:
+          use_dataloader: True
+          pick_count: 32
+      - ood:
+          use_dataloader: True
+          pick_count: 256
+    

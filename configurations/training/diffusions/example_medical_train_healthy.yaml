@@ -1,0 +1,76 @@
+# Example of a flow (neural spline flow) configuration for training on grayscale images
+# change the data.dataset to any other grayscale dataset such as: fashion-mnist, mnist, omniglot, etc.
+
+data:
+  dataset: medmnist
+  additional_dataset_args:
+    subclass: ChestMNIST
+    resize_image: [32, 32]
+  make_valid_loader: true
+  train_batch_size: 128
+  valid_batch_size: 128
+  test_batch_size: 128
+
+trainer:
+  trainer_cls: model_zoo.trainers.single_trainer.SingleTrainer
+  optimizer:
+    class_path: torch.optim.AdamW
+    init_args:
+      lr: 0.00005
+  writer:
+    tag_group: diffusion
+    type: wandb
+    entity: platypus-dgm
+    project: training-dgms
+    
+
+  sample_freq: 1 # logs the samples after every two epochs
+  max_epochs: 150
+  early_stopping_metric: loss
+  max_bad_valid_epochs: 150
+  max_grad_norm: 1.0
+  progress_bar: True
+
+# Settings from the new configurations
+model:
+  class_path: model_zoo.density_estimator.diffusions.VPSDE_Diffusion
+  init_args:
+    # Data transform args (they are here because they might influence log_prob)
+    flatten: False
+    data_shape: [1, 32, 32]
+    denoising_sigma: null
+    dequantize: True
+    scale_data: False
+    scale_data_to_n1_1: True
+    whitening_transform: False
+    logit_transform: False
+    clamp_samples: False
+
+    score_network: model_zoo.networks.neural_networks.DiffusersWrapper
+    score_network_kwargs:
+      score_network: diffusers.UNet2DModel
+      sample_size: 32 # The target image resolution
+      in_channels: 1 # The number of input channels, 3 for RGB images
+      out_channels: 1 # The number of output channels
+      layers_per_block: 2 # How many ResNet layers to use per UNet block
+      block_out_channels:
+        - 128
+        - 128
+        - 256
+        - 256
+        - 512
+        - 512 # The number of output channels for each UNet block
+      down_block_types:
+        - DownBlock2D # A regular ResNet downsampling block
+        - DownBlock2D
+        - DownBlock2D
+        - DownBlock2D
+        - AttnDownBlock2D # A ResNet downsampling block with spatial self-attention
+        - DownBlock2D
+      up_block_types:
+        - UpBlock2D # A regular ResNet upsampling block
+        - AttnUpBlock2D # A ResNet upsampling block with spatial self-attention
+        - UpBlock2D
+        - UpBlock2D
+        - UpBlock2D
+        - UpBlock2D

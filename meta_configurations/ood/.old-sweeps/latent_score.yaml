@@ -1,0 +1,179 @@
+project: latent-score-dysweep
+entity: platypus-dgm
+count: 10000
+
+# BASE configuration which is being used
+base_config:
+    # for reproducibility
+  data:
+    seed: 10
+  ood:
+    pick_single: False
+    use_dataloader: False
+    pick_count: 100
+
+    seed: 50
+    
+    method: ood.methods.latent_score_method.LatentScore
+    method_args:
+      bincount: 15
+
+sweep_configuration:
+  ood:
+    method_args:
+      dy__upsert:
+      - sweep: True
+        sweep_identifier: method
+        sweep_alias:
+        - norm
+        - prob_r0.01
+        - prob_r0.1
+        - prob_r1
+        - prob_r5
+        - prob_r10
+        - prob_r100
+        values:
+        - score_type: norm
+        - score_type: prob
+          score_args:
+            radius: 0.01
+        - score_type: prob
+          score_args:
+            radius: 0.1
+        - score_type: prob
+          score_args:
+            radius: 1.0
+        - score_type: prob
+          score_args:
+            radius: 5.0
+        - score_type: prob
+          score_args:
+            radius: 10.0
+        - score_type: prob
+          score_args:
+            radius: 100.0
+
+      - sweep: True
+        sweep_identifier: p_ball
+        sweep_alias:
+        - p_1
+        - p_2
+        - p_3
+        - p_inf
+        values:
+        - score_args:
+            p: 1
+        - score_args:
+            p: 2
+        - score_args:
+            p: 3
+        - score_args:
+            p: inf
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_dataset
+      sweep_alias:
+        - flow_fmnist
+        - flow_cifar10
+        - flow_svhn
+        - flow_mnist
+      values:
+        - base_model:
+            run_dir: runs/flow_fmnist
+            config_dir: experiments/training/flow_elaborate_fmnist.yaml
+            checkpoint_dir: runs/flow_fmnist/checkpoints/de_nf_latest.pt
+        - base_model:
+            run_dir: runs/flow_cifar10
+            config_dir: experiments/training/flow_heavy_cifar10.yaml
+            checkpoint_dir: runs/flow_cifar10/checkpoints/de_nf_latest.pt
+        - base_model:
+            run_dir: runs/flow_svhn
+            config_dir: experiments/training/flow_heavy_svhn.yaml
+            checkpoint_dir: runs/flow_svhn/checkpoints/de_nf_latest.pt
+        - base_model:
+            run_dir: runs/flow_mnist
+            config_dir: experiments/training/flow_elaborate_mnist.yaml
+            checkpoint_dir: runs/flow_mnist/checkpoints/de_nf_latest.pt
+        
+    - sweep: True
+      sweep_identifier: C_ood_or_not
+      sweep_alias:
+        - ood_for_test
+        - in_distr_for_test
+      values:
+        - data:
+            in_distribution:
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        last_part = conf['base_model']['run_dir'].split('_')[-1]
+                        if last_part == 'fmnist':
+                          return 'fashion-mnist'
+                        if last_part == 'cifar10':
+                          return 'cifar10'
+                        if last_part == 'mnist':
+                          return 'mnist'
+                        if last_part == 'svhn':
+                          return 'svhn'
+                    function_of_interest: func
+            out_of_distribution:
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        last_part = conf['base_model']['run_dir'].split('_')[-1]
+                        if last_part == 'fmnist':
+                          return 'mnist'
+                        if last_part == 'cifar10':
+                          return 'svhn'
+                        if last_part == 'mnist':
+                          return 'fashion-mnist'
+                        if last_part == 'svhn':
+                          return 'cifar10'
+                    function_of_interest: func
+        - data:
+            in_distribution:
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+                      def func(conf):
+
+                        last_part = conf['base_model']['run_dir'].split('_')[-1]
+                        if last_part == 'fmnist':
+                          return 'fashion-mnist'
+                        if last_part == 'cifar10':
+                          return 'cifar10'
+                        if last_part == 'mnist':
+                          return 'mnist'
+                        if last_part == 'svhn':
+                          return 'svhn'
+                    function_of_interest: func
+            out_of_distribution:
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+                        last_part = conf['base_model']['run_dir'].split('_')[-1]
+                        if last_part == 'fmnist':
+                          return 'fashion-mnist'
+                        if last_part == 'cifar10':
+                          return 'cifar10'
+                        if last_part == 'mnist':
+                          return 'mnist'
+                        if last_part == 'svhn':
+                          return 'svhn'
+                    function_of_interest: func

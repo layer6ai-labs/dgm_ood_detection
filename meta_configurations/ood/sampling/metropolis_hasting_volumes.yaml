@@ -1,0 +1,174 @@
+# In this set of experiments
+# I consider a colorful flow model
+# map a data point to the latent space and consider the Jacobian of the mapping
+# according to that Jacobian, I obtain an ellipsoid in the latent space that gets mapped back 
+# to an ambient L2 ball in the data space
+# Then I sample from the ellispoid and show the samples when they are mapped back.
+
+# I also consider the case where I don't consider an ellipsoid, but rather, consider an L2 ball in the latent space
+# as well. This is to test out how important the Jacobian is in the sampling process.
+
+project: sampling
+sweep_name: metropolis
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+    # for reproducibility
+    seed: 10
+  ood:
+    # bypass entirely
+    bypass_visualization: True
+
+    pick_single: False
+    use_dataloader: True
+    seed: 100
+    histogram_limit: 2000
+    pick_count: 1
+
+    
+    # The OOD detection method in use
+    method: ood.methods.sampling.MetropolisHastingEstimator
+    method_args:
+      
+      sample_count: 100
+      proposal_std: 0.1
+      use_adaptive_proposal: True
+
+      # for logging args
+      verbose: 2
+      
+      # The range of the radii to show in the trend
+      radii_range: [0.001, 0.01]
+      radii_n: 10
+      
+      # visualization arguments
+      visualization_args: 
+        with_std: False
+      
+      # include reference or not
+      include_reference: False
+
+      
+
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: boost_range
+      sweep_alias:
+      - 500x
+      - 100x
+      - 10x
+      - 1x
+      values:
+      - ood:
+          method_args:
+            radii_range:
+              dy__eval:
+                expression: |
+                  def boost500x(conf):
+                    return [conf['ood']['method_args']['radii_range'][0], conf['ood']['method_args']['radii_range'][1] * 500]
+                function_of_interest: boost500x
+      - ood:
+          method_args:
+            radii_range:
+              dy__eval:
+                expression: |
+                  def boost100x(conf):
+                    return [conf['ood']['method_args']['radii_range'][0], conf['ood']['method_args']['radii_range'][1] * 100]
+                function_of_interest: boost100x
+      - ood:
+          method_args:
+            radii_range:
+              dy__eval:
+                expression: |
+                  def boost10x(conf):
+                    return [conf['ood']['method_args']['radii_range'][0], conf['ood']['method_args']['radii_range'][1] * 10]
+                function_of_interest: boost10x
+      - ood:
+          method_args:
+            radii_range:
+              dy__eval:
+                expression: |
+                  def boost1x(conf):
+                    return conf['ood']['method_args']['radii_range']
+                function_of_interest: boost1x
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # colorful flows
+        - flow_cifar10_RQ_NSF
+        - flow_svhn_RQ_NSF
+      values:
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+        
+    - data:
+        out_of_distribution:
+          pick_loader: test
+          dataloader_args:
+            dy__upsert:
+              - sweep: True
+                sweep_identifier: ood_picker
+                sweep_alias:
+                - svhn
+                - cifar10
+                - generated
+                values:
+                - dataset: svhn
+                - dataset: cifar10
+                - dy__eval:
+                    expression: |
+                      from meta_configurations import get_generated_config
+
+                      def pick_generated(conf):
+                        return get_generated_config(conf)
+
+                    function_of_interest: pick_generated

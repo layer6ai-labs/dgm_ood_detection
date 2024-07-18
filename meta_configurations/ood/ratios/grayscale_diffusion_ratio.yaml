@@ -1,0 +1,181 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: grayscale_diffusion_ratio
+entity: platypus-dgm
+count: 10000
+method: grid
+
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128 
+        additional_dataset_args:
+          resize_image: [32, 32]
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+        train_batch_size: 128
+        valid_batch_size: 128
+        test_batch_size: 128
+      pick_loader: test
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+  
+
+    # for reproducibility
+    seed: 100
+    
+    # The OOD detection method in use
+    method: ood.likelihood_ratio.DiffusionCCLR
+    method_args:
+      verbose: 2
+      num_samples: 1024
+      chunk_size: 128
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # grayscale diffusions (Glow and RQ_NSF)
+        - VPSDE_mnist
+        - VPSDE_fmnist
+        - VPSDE_emnist
+        - VPSDE_omniglot
+      values:
+        - base_model:
+            config_dir: checkpoints-hg9x5r0n/diffusion_mnist_tweeting_1ou4vbuo_final/run_config.json
+            checkpoint_dir: checkpoints-hg9x5r0n/diffusion_mnist_tweeting_1ou4vbuo_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+        - base_model:
+            config_dir: checkpoints-hg9x5r0n/diffusion_fashion-mnist_interparental_bxnuw7zk_final/run_config.json
+            checkpoint_dir: checkpoints-hg9x5r0n/diffusion_fashion-mnist_interparental_bxnuw7zk_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+
+        - base_model:
+            config_dir: checkpoints-hg9x5r0n/diffusion_emnist_iridomyrmex_7wnmityc_final/run_config.json
+            checkpoint_dir: checkpoints-hg9x5r0n/diffusion_emnist_iridomyrmex_7wnmityc_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: emnist
+        - base_model:
+            config_dir: checkpoints-hg9x5r0n/diffusion_omniglot_polacre_txgcp3yt_final/run_config.json
+            checkpoint_dir: checkpoints-hg9x5r0n/diffusion_omniglot_polacre_txgcp3yt_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: omniglot
+
+    - sweep: True
+      sweep_identifier: C_ood_picker
+      sweep_alias:
+      - mnist
+      - fmnist
+      - omniglot
+      - emnist
+      - generated
+      values:
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: mnist
+            
+              additional_dataset_args:
+                resize_image: [32, 32]
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: fashion-mnist
+              
+              additional_dataset_args:
+                resize_image: [32, 32]
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: omniglot
+              
+              additional_dataset_args:
+                resize_image: [32, 32]
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: emnist
+              
+              additional_dataset_args:
+                resize_image: [32, 32]
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dy__eval:
+                expression: |
+                  from meta_configurations import get_generated_config
+
+                  def pick_generated(conf):
+                    return get_generated_config(conf)
+
+                function_of_interest: pick_generated
+    - sweep: True
+      sweep_identifier: B_t_frac # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+        - frac_1_3
+        - frac_1_2
+        - frac_1_4
+        - frac_1_10
+        - frac_2_3
+      values:
+        - ood:
+            method_args:
+              t_frac: 0.33
+        - ood:
+            method_args:
+              t_frac: 0.5
+        - ood:
+            method_args:
+              t_frac: 0.25
+        - ood:
+            method_args:
+              t_frac: 0.1
+        - ood:
+            method_args:
+              t_frac: 0.66
+    - sweep: True
+      sweep_identifier: A_subsample_size # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+        - tiny
+        - medium
+        - huge
+      values:
+        - ood:
+            use_dataloader: True
+            pick_count: 1
+        - ood:
+            use_dataloader: True
+            pick_count: 4
+        - ood:
+            use_dataloader: True
+            pick_count: 32

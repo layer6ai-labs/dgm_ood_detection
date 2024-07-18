@@ -1,0 +1,123 @@
+# Training VP-SDE diffusion models on different Grayscale datasets 
+
+project: training-dgms
+entity: platypus-dgm
+sweep_name: medmnist_diffusions
+count: 10000
+delete_checkpoints: False
+
+
+base_config:
+  data:
+    dataset: medmnist
+    make_valid_loader: true
+    train_batch_size: 32
+    valid_batch_size: 32
+    test_batch_size: 32
+    additional_dataset_args:
+      resize_image: [32, 32]
+    
+
+
+  trainer:
+    trainer_cls: model_zoo.trainers.single_trainer.SingleTrainer
+    optimizer:
+      class_path: torch.optim.Adam
+      init_args:
+        lr: 0.00005
+    writer:
+      tag_group: diffusion
+      type: wandb
+      entity: platypus-dgm
+      project: training-dgms
+      
+
+    sample_freq: 1 # logs the samples after every two epochs
+    max_epochs: 80
+    early_stopping_metric: null
+    max_bad_valid_epochs: 80
+    max_grad_norm: 1.0
+    progress_bar: True
+      
+
+  # Settings from the new configurations
+  model:
+    class_path: model_zoo.density_estimator.diffusions.VPSDE_Diffusion
+    init_args:
+      # Data transform args (they are here because they might influence log_prob)
+      flatten: False
+      data_shape: [1, 32, 32]
+      denoising_sigma: null
+      dequantize: True
+      scale_data: False
+      scale_data_to_n1_1: True
+      whitening_transform: False
+      logit_transform: False
+      clamp_samples: False
+
+      score_network: model_zoo.networks.neural_networks.DiffusersWrapper
+      score_network_kwargs:
+        score_network: diffusers.UNet2DModel
+        sample_size: 32  # The target image resolution
+        in_channels: 1  # The number of input channels, 3 for RGB images
+        out_channels: 1  # The number of output channels
+        layers_per_block: 2  # How many ResNet layers to use per UNet block
+        block_out_channels:
+          - 128
+          - 128
+          - 256
+          - 256
+          - 512
+          - 512  # The number of output channels for each UNet block
+        down_block_types:
+          - DownBlock2D  # A regular ResNet downsampling block
+          - DownBlock2D
+          - DownBlock2D
+          - DownBlock2D
+          - AttnDownBlock2D  # A ResNet downsampling block with spatial self-attention
+          - DownBlock2D
+        up_block_types:
+          - UpBlock2D  # A regular ResNet upsampling block
+          - AttnUpBlock2D  # A ResNet upsampling block with spatial self-attention
+          - UpBlock2D
+          - UpBlock2D
+          - UpBlock2D
+          - UpBlock2D
+
+      T: 1.0
+      beta_min: 0.1
+      beta_max: 20.
+    
+
+sweep_configuration:
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: data_type
+      sweep_alias:
+        - chest_xray_aligned
+        - pneumonia_chest_xray
+        - chest_xray
+        - organ_a_abdominal_ct
+        - organ_c_abdominal_ct
+        - organ_s_abdominal_ct
+      values:
+        - data:
+            additional_dataset_args:
+              subclass: ChestMNIST
+              align: True
+        - data:
+            additional_dataset_args:
+              subclass: PneumoniaMNIST
+        - data:
+            additional_dataset_args:
+              subclass: ChestMNIST
+              align: False
+        - data:
+            additional_dataset_args:
+              subclass: OrganAMNIST
+        - data:
+            additional_dataset_args:
+              subclass: OrganCMNIST
+        - data:
+            additional_dataset_args:
+              subclass: OrganSMNIST

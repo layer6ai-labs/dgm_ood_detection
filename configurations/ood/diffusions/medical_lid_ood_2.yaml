@@ -1,0 +1,80 @@
+base_model:
+  config_dir: checkpoints-jjohg4sc/chest_xray_aligned_j11alw9w/run_config.json
+  checkpoint_dir: checkpoints-jjohg4sc/chest_xray_aligned_j11alw9w/checkpoints/de_VPSDE_Diffusion_latest.pt
+data:
+  # specify the datasets and dataloader configurations for the in and out of distribution data.
+  in_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: medmnist
+      additional_dataset_args:
+        resize_image: [32, 32]
+        subclass: ChestMNIST
+        align: True
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: train
+  out_of_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: medmnist
+      additional_dataset_args:
+        resize_image: [32, 32]
+        subclass: PneumoniaMNIST
+      train_batch_size: 8
+      valid_batch_size: 8
+      test_batch_size: 8
+    pick_loader: test
+ood:
+  # bypass the entire visualization process since there is no need to plot the histograms that take time!
+  bypass_visualization: False
+  samples_visualization: 1
+  bypass_visualize_histogram: True
+  
+  # for reproducibility
+  seed: 100
+
+  use_dataloader: True
+  pick_count: 5
+
+  # The OOD detection method in use
+  method: ood.intrinsic_dimension.LID_OOD
+  method_args:
+    # ----- LID estimator configuration -----
+    lid_calculator_class: lid.diffusions.NormalBundleLIDEstimator
+    lid_calculator_args:
+        noise_time: 0.01
+        num_scores: null # use 4D
+        chunk_size: 128
+        verbose: 2
+        ambient_dim: 1024 # 1x32x3
+    # ----- Likelihood Estimator Configuration -----
+    likelihood_computation_args:
+        eps: 0.01
+        steps: 25
+        trace_calculation_kwargs:
+            method: deterministic # hutchinson_rademacher 
+            # sample_count: 25
+            parallel_batch_size: 128
+            verbose: 0
+        verbose: 1
+    # ----- OOD detection configuration -----
+    # verbosity
+    verbose: 1
+    checkpointing_buffer: 2
+    # Hyper-parameters relating to the scale parameter that is being computed
+    scale_selection_algorithm: given_from_model_free
+    scale_selection_algorithm_args:
+      model_free_dimension: 50
+      l_scale: -100
+      r_scale: 100
+      bin_search_steps: 100
+
+    training_buffer_size: 16
+
+  
+logger:
+  project: ood-detection-single-runs
+  entity: platypus-dgm
+  name: chest_vs_pneumonia_ood

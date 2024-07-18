@@ -1,0 +1,136 @@
+# Train on embeddings efficientnet embeddings for Grayscale datasets (Extra)
+
+project: training-dgms
+entity: platypus-dgm
+sweep_name: grayscale_flows_embedded
+count: 10000
+delete_checkpoints: False
+
+# Change the name of the run to [flow_type]_[dataset_type]_[previous_run_name]
+run_name_changer:
+  expression: |
+    from meta_configurations import * 
+  function_of_interest: change_name
+
+# BASE configuration which is being used
+base_config:
+  data:
+    make_valid_loader: true
+    train_batch_size: 1024
+    valid_batch_size: 1024
+    test_batch_size: 1024
+    embedding_network: nvidia_efficientnet_b0
+  
+  trainer:
+    trainer_cls: model_zoo.trainers.single_trainer.SingleTrainer
+    optimizer:
+      class_path: torch.optim.AdamW
+      init_args:
+        lr: 0.001
+      
+
+    writer:
+      tag_group: flow
+      type: wandb
+      entity: platypus-dgm
+      project: training-dgms
+    
+    max_epochs: 120
+    early_stopping_metric: loss
+    max_bad_valid_epochs: 5
+    max_grad_norm: 1.0
+    progress_bar: True
+      
+
+  # Settings from the new configurations
+  model:
+    class_path: model_zoo.density_estimator.flow.NormalizingFlow
+    init_args:
+      # Data transform args (they are here because they might influence log_prob)
+      flatten: False
+      data_shape: [1000]
+
+      denoising_sigma: null
+      dequantize: False
+      scale_data: False
+      whitening_transform: False
+      logit_transform: False
+      clamp_samples: False
+
+      # Base distribution arguments (in this work the base is always Gaussian)
+      base_distribution:
+        class_path: nflows.distributions.StandardNormal
+        init_args:
+          shape: [1000]
+      
+
+      transform:
+      - repeat_n: 8
+        content:
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 1000
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args: 
+              coupling_transform_cls: null
+              net:
+                class_path: nflows.nn.nets.resnet.ResidualNet
+                init_args:
+                  hidden_features: 512
+                  num_blocks: 3
+              mask:
+                dim: 1000
+                flip: True
+          
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 1000
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args: 
+              coupling_transform_cls: null
+              net:
+                class_path: nflows.nn.nets.resnet.ResidualNet
+                init_args:
+                  hidden_features: 512
+                  num_blocks: 3
+              mask:
+                dim: 1000
+                flip: False
+    
+
+sweep_configuration:
+  data:
+    dataset:
+      sweep_identifier: B_dataset
+      sweep: True
+      values: ['fashion-mnist', 'omniglot', 'mnist', 'emnist-minus-mnist', 'emnist']
+  dy__upsert:
+  - sweep: True
+    sweep_identifier: A_flow_type
+    sweep_alias:
+    - glow
+    - rq_nsf
+    values:
+    - dy__eval:
+        expression: |
+          from meta_configurations import change_coupling_layers
+          def turn_into_glow(conf):
+            return  change_coupling_layers(
+                          conf, 
+                          'AffineCouplingTransform'
+                    )
+        function_of_interest: turn_into_glow
+    - dy__eval:
+        expression: |
+          from meta_configurations import change_coupling_layers
+          def turn_into_rq_nsf(conf):
+            return  change_coupling_layers(
+                          conf, 
+                          'PiecewiseRationalQuadraticCouplingTransform',
+                          additional_args = {
+                            'tails': 'linear',
+                            'num_bins': 8,
+                            'tail_bound': 10.0,
+                          }
+                    )
+        function_of_interest: turn_into_rq_nsf

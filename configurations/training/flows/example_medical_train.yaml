@@ -1,0 +1,228 @@
+# Example of a flow (neural spline flow) configuration for training on grayscale images
+# change the data.dataset to any other grayscale dataset such as: fashion-mnist, mnist, omniglot, etc.
+
+data:
+  dataset: medmnist
+  additional_dataset_args:
+    subclass: PneumoniaMNIST
+  make_valid_loader: true
+  train_batch_size: 128
+  valid_batch_size: 128
+  test_batch_size: 128
+
+trainer:
+  trainer_cls: model_zoo.trainers.single_trainer.SingleTrainer
+  optimizer:
+    class_path: torch.optim.AdamW
+    init_args:
+      lr: 0.001
+
+  # W&B settings
+  writer:
+    make_subdir: True
+    tag_group: flow
+    type: wandb
+    entity: platypus-dgm
+    project: training-dgms
+
+  sample_freq: 1 # logs the samples after every two epochs
+  max_epochs: 400
+  early_stopping_metric: loss
+  max_bad_valid_epochs: 30
+  max_grad_norm: 1.0
+  progress_bar: True
+
+# The flow architecture
+model:
+  class_path: model_zoo.density_estimator.flow.NormalizingFlow
+  init_args:
+    # Data transform args (they are here because they might influence log_prob)
+    flatten: False
+    data_shape: [1, 28, 28]
+    denoising_sigma: null
+    dequantize: True
+    scale_data: True
+    whitening_transform: False
+
+    # with flow_logit_transform, it also get's included in the log_prob
+    logit_transform: True
+
+    clamp_samples: False
+
+    # Base distribution arguments (in this work the base is always Gaussian)
+    base_distribution:
+      class_path: nflows.distributions.StandardNormal
+      init_args:
+        shape: [784]
+
+    transform:
+      #########################################################################
+      ###### First level
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 2 # turns the image into [4, 14, 14]
+      - repeat_n: 3
+        content:
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 4 # Apply activation normalization to all the channels
+          - class_path: nflows.transforms.conv.OneByOneConvolution
+            init_args:
+              num_channels: 4
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 64
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 4
+                flip: True
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 4 # Apply activation normalization to all the channels
+          - class_path: nflows.transforms.conv.OneByOneConvolution
+            init_args:
+              num_channels: 4
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 64
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 4
+                flip: False
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args:
+          num_channels: 4
+        multiscale:
+          transform_output_shape: [4, 14, 14]
+      ###########################################################################
+      ##### Second Level
+      # squeeze
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 2 # turns the image into [8, 7, 7]
+      - repeat_n: 3
+        content:
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 8 # Apply activation normalization to all the channels
+          - class_path: nflows.transforms.conv.OneByOneConvolution
+            init_args:
+              num_channels: 8
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 64
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 8
+                flip: True
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 8 # Apply activation normalization to all the channels
+          - class_path: nflows.transforms.conv.OneByOneConvolution
+            init_args:
+              num_channels: 8
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 64
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 8
+                flip: False
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args:
+          num_channels: 8
+        multiscale:
+          transform_output_shape: [8, 7, 7]
+      ###########################################################################
+      ##### Third Level
+      # squeeze
+      - class_path: nflows.transforms.reshape.SqueezeTransform
+        init_args:
+          factor: 7 # turns the image into [196, 1, 1]
+      - repeat_n: 2
+        content:
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 196 # Apply activation normalization to all the channels
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 1024
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 196
+                flip: True
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+          - class_path: nflows.transforms.normalization.ActNorm
+            init_args:
+              features: 196 # Apply activation normalization to all the channels
+          - class_path: model_zoo.density_estimator.flow.ConfigurableCouplingTransform
+            init_args:
+              coupling_transform_cls: nflows.transforms.PiecewiseRationalQuadraticCouplingTransform
+              net:
+                class_path: nflows.nn.nets.resnet.ConvResidualNet
+                init_args:
+                  hidden_channels: 1024
+                  num_blocks: 2
+                  activation: torch.nn.functional.relu
+                  dropout_probability: 0.2
+                  use_batch_norm: False
+              mask:
+                dim: 196
+                flip: False
+              tails: linear
+              num_bins: 2
+              tail_bound: 1.0
+      - class_path: nflows.transforms.conv.OneByOneConvolution
+        init_args:
+          num_channels: 196
+        multiscale:
+          transform_output_shape: [196, 1, 1]

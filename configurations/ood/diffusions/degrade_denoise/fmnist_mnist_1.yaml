@@ -1,0 +1,49 @@
+base_model:
+  config_dir: checkpoints-hg9x5r0n/diffusion_fashion-mnist_interparental_bxnuw7zk_final/run_config.json
+  checkpoint_dir: checkpoints-hg9x5r0n/diffusion_fashion-mnist_interparental_bxnuw7zk_final/checkpoints/de_score-based-VP-diffusion_best_valid.pt
+data:
+  # specify the datasets and dataloader configurations for the in and out of distribution data.
+  in_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: fashion-mnist
+      train_batch_size: 128
+      valid_batch_size: 128
+      test_batch_size: 128
+      additional_dataset_args:
+        resize_image: [32, 32]
+    pick_loader: train
+  out_of_distribution:
+    dataloader_args:
+      make_valid_loader: false
+      dataset: mnist
+      train_batch_size: 128
+      valid_batch_size: 128
+      test_batch_size: 128
+      additional_dataset_args:
+        resize_image: [32, 32]
+    pick_loader: test
+ood:
+  # bypass the entire visualization process since there is no need to plot the histograms that take time!
+  bypass_visualization: True
+  
+  # for reproducibility
+  seed: 100
+
+  use_dataloader: True
+  pick_count: 1
+
+  # The OOD detection method in use
+  method: ood.reconstruction.DegradeDenoise
+  method_args:
+    num_time_steps: 10
+    steps: 100
+    validation_size: 1
+    methods_to_include: ['l2', 'lpips']
+    verbose: 3
+
+  
+logger:
+  project: ood-detection-single-runs
+  entity: platypus-dgm
+  name: fmnist_vs_mnist_degrade_denoise_ood

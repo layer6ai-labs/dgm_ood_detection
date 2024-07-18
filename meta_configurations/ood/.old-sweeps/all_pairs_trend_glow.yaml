@@ -1,0 +1,306 @@
+# This sweep will contain all the CDF trends across pairs
+# of datasets 
+project: all-pairs-R2-trends
+entity: platypus-dgm
+count: 10000
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  function_descriptor: |
+    def func(conf, run_name):
+      ret = conf['data']['in_distribution']['dataloader_args']['dataset']
+      ret += '_vs_'
+      ret += conf['data']['out_of_distribution']['dataloader_args']['dataset']
+      ret += f"_{conf['data']['out_of_distribution']['pick_loader']}"
+      ret += f"_{run_name}"
+      return ret
+  function_of_interest: func
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+    # for reproducibility
+    seed: 10
+  ood:
+    bypass_visualization: True
+    pick_single: False
+    use_dataloader: True
+    seed: 100
+    # The OOD detection method in use
+    method: ood.methods.latent_r2.CDFTrend
+    method_args:
+
+      # loader buffers 
+      # each buffered loader will have 4 batches
+      loader_buffer_size: 10
+      # limit the loader for fast run (optional)
+      loader_limit: 10
+
+      # Compressing the trends for memory usage
+      compress_trend: True
+      compression_bucket_size: 200
+
+      verbose: 2
+      visualization_args:
+        with_std: False
+
+      cdf_calculator_args:
+        encoding_model_class: ood.methods.latent_r2.EncodingFlow
+        encoding_model_args:
+          use_functorch: True
+          use_forward_mode: True
+          use_vmap: True
+          verbose: 0
+
+        verbose: 0
+      
+      include_reference: False
+
+      
+
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: true
+      sweep_identifier: manifold_dimension
+      sweep_alias:
+      - top5
+      - top10
+      - top20
+      values:
+      - ood:
+          method_args:
+            cdf_calculator_args:
+              filtering:
+                # filter the eigenvalues
+              
+                function_descriptor: |
+                  import torch
+                  def func_top5(cent, rad):
+                    return rad < rad.topk(5)[0][-1]
+
+                function_of_interest: func_top5
+      - ood:
+          method_args:
+            cdf_calculator_args:
+              filtering:
+                # filter the eigenvalues
+              
+                function_descriptor: |
+                  import torch
+                  def func_top10(cent, rad):
+                    return rad < rad.topk(10)[0][-1]
+
+                function_of_interest: func_top10
+      
+      - ood:
+          method_args:
+            cdf_calculator_args:
+              filtering:
+                # filter the eigenvalues
+              
+                function_descriptor: |
+                  import torch
+                  def func_top20(cent, rad):
+                    return rad < rad.topk(20)[0][-1]
+
+                function_of_interest: func_top20
+
+    - sweep: true
+      sweep_identifier: A_latent_volume
+      sweep_alias:
+      - ellipsoid
+      # - rectangle
+      values:
+      - ood:
+          method_args:
+            cdf_calculator_class: ood.methods.latent_r2.CDFElliposoidCalculator
+            cdf_calculator_args:
+              atol: 0.000001
+              lim: 10000
+            visualization_args:
+              visualize_log: False
+      # - ood:
+      #     method_args:
+      #       cdf_calculator_class: ood.methods.latent_r2.CDFParallelogramCalculator
+      #       cdf_calculator_args:
+      #         eps: 0.00001
+      #       visualization_args:
+      #         visualize_log: True
+    - sweep: True
+      sweep_identifier: radius_range
+      sweep_alias:
+      - holistic
+      - close_range
+      values:
+      - ood:
+          method_args:
+            radii_range: [0, 20000]
+            radii_n: 1000
+      - ood:
+          method_args:
+            radii_range: [0, 3500]
+            radii_n: 100
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        - flow_mnist_Glow
+        - flow_fmnist_Glow
+        - flow_cifar10_Glow
+        - flow_svhn_Glow
+      values:
+        - base_model:
+            config_dir: runs/Glow_mnist/model.yaml
+            checkpoint_dir: runs/Glow_mnist/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+                train_batch_size: 32
+                valid_batch_size: 32
+                test_batch_size: 32
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 32
+                valid_batch_size: 32
+                test_batch_size: 32
+          ood:
+            method_args:
+              cdf_calculator_args:
+                encoding_model_args:
+                  computation_batch_size: 7
+        - base_model:
+            config_dir: runs/Glow_fmnist/model.yaml
+            checkpoint_dir: runs/Glow_fmnist/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                train_batch_size: 32
+                valid_batch_size: 32
+                test_batch_size: 32
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 32
+                valid_batch_size: 32
+                test_batch_size: 32
+          ood:
+            method_args:
+              cdf_calculator_args:
+                encoding_model_args:
+                  computation_batch_size: 7
+        - base_model:
+            config_dir: runs/Glow_cifar10/model.yaml
+            checkpoint_dir: runs/Glow_cifar10/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+                train_batch_size: 16
+                valid_batch_size: 16
+                test_batch_size: 16
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 16
+                valid_batch_size: 16
+                test_batch_size: 16
+          ood:
+            method_args:
+              cdf_calculator_args:
+                encoding_model_args:
+                  computation_batch_size: 1
+        - base_model:
+            config_dir: runs/Glow_svhn/model.yaml
+            checkpoint_dir: runs/Glow_svhn/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+                train_batch_size: 16
+                valid_batch_size: 16
+                test_batch_size: 16
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 16
+                valid_batch_size: 16
+                test_batch_size: 16
+          ood:
+            method_args:
+              cdf_calculator_args:
+                encoding_model_args:
+                  computation_batch_size: 1
+        
+        
+    - sweep: True
+      sweep_identifier: ood_picker
+      # This part picks ood data
+      # for now, we've included opposite data and same but test
+      sweep_alias:
+        - opposite
+        - in_distribution_test
+        - in_distribution_train
+      values:
+        - data:
+            out_of_distribution:
+              # the pick loader in this case doesn't really matter
+              pick_loader: test
+
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        in_distr_dataset = conf['data']['in_distribution']['dataloader_args']['dataset']
+
+                        map_to_other = {
+                          'mnist': 'fashion-mnist',
+                          'fashion-mnist': 'mnist',
+                          'cifar10': 'svhn',
+                          'svhn': 'cifar10',
+                        }
+                        
+                        return map_to_other[in_distr_dataset]
+
+                    function_of_interest: func
+        - data:
+            out_of_distribution:
+              pick_loader: test
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        in_distr_dataset = conf['data']['in_distribution']['dataloader_args']['dataset']
+
+                        return in_distr_dataset
+                    function_of_interest: func
+        - data:
+            out_of_distribution:
+              pick_loader: train
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        in_distr_dataset = conf['data']['in_distribution']['dataloader_args']['dataset']
+
+                        return in_distr_dataset
+                    function_of_interest: func

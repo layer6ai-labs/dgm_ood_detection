@@ -1,0 +1,172 @@
+project: semantic-ellipsoids-dysweep
+entity: platypus-dgm
+count: 10000
+run_name_changer:
+  function_descriptor: |
+    def func(conf, run_name):
+      ret = conf['data']['in_distribution']['dataloader_args']['dataset']
+      ret += '_vs_'
+      ret += conf['data']['out_of_distribution']['dataloader_args']['dataset']
+      ret += f"_{run_name}"
+      return ret
+  function_of_interest: func
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+    # for reproducibility
+    seed: 10
+  ood:
+    # bypass_visualization: True
+    pick_single: False
+    use_dataloader: False
+    pick_count: 100
+    
+    seed: 10
+    
+    method: ood.methods.latent_score_method.LatentScore
+    method_args:
+      bincount: 300
+      score_cls: ood.methods.latent_score_method.SemanticAwareEllipsoidScore
+      score_args:
+        p: 2
+      tunable_parameter_name: radius
+
+sweep_configuration:
+  ood:
+    method_args:
+      tunable_lr:
+        sweep: True
+        sweep_identifier: radii_range
+        sweep_alias:
+        - long_range
+        - short_range
+        values:
+        - [0.01, 20000.0]
+        - [0.01, 5000]
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: in_distribution_model
+      sweep_alias:
+        - flow_mnist_RQ_NSF_no_logit
+        - flow_fmnist_RQ_NSF_no_logit
+        - flow_cifar10_RQ_NSF_no_logit
+        - flow_svhn_RQ_NSF_no_logit
+      values:
+        - base_model:
+            config_dir: runs/RQ_NSF_no_logit_mnist/model.yaml
+            checkpoint_dir: runs/RQ_NSF_no_logit_mnist/checkpoints/de_nf_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: mnist
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+        - base_model:
+            config_dir: runs/RQ_NSF_no_logit_fmnist/model.yaml
+            checkpoint_dir: runs/RQ_NSF_no_logit_fmnist/checkpoints/de_nf_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: fashion-mnist
+                train_batch_size: 128 
+                valid_batch_size: 128
+                test_batch_size: 128
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+        - base_model:
+            config_dir: runs/RQ_NSF_no_logit_cifar10/model.yaml
+            checkpoint_dir: runs/RQ_NSF_no_logit_cifar10/checkpoints/de_nf_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+        - base_model:
+            config_dir: runs/RQ_NSF_no_logit_svhn/model.yaml
+            checkpoint_dir: runs/RQ_NSF_no_logit_svhn/checkpoints/de_nf_latest.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 128
+                valid_batch_size: 128
+                test_batch_size: 128
+        
+    - sweep: True
+      sweep_identifier: ood_picker
+      # This part picks ood data
+      # for now, we've included opposite data and same but test
+      sweep_alias:
+        - opposite
+        - in_distribution_test
+      values:
+        - data:
+            out_of_distribution:
+              # the pick loader in this case doesn't really matter
+              pick_loader: test
+
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        in_distr_dataset = conf['data']['in_distribution']['dataloader_args']['dataset']
+
+                        map_to_other = {
+                          'mnist': 'fashion-mnist',
+                          'fashion-mnist': 'mnist',
+                          'cifar10': 'svhn',
+                          'svhn': 'cifar10',
+                        }
+                        
+                        return map_to_other[in_distr_dataset]
+
+                    function_of_interest: func
+        - data:
+            out_of_distribution:
+              pick_loader: test
+              dataloader_args:
+                dataset:
+                  dy__eval:
+                    expression: |
+                      from pprint import pprint
+
+                      def func(conf):
+
+                        in_distr_dataset = conf['data']['in_distribution']['dataloader_args']['dataset']
+
+                        return in_distr_dataset
+                    function_of_interest: func

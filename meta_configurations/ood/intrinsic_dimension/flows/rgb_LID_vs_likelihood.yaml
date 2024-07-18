@@ -1,0 +1,272 @@
+# This sweep compares the likelihood values of in and out of distribution
+# for all the dataset pairs, containing the DGM generated ones
+project: final-report
+sweep_name: rgb_LID_vs_likelihood
+entity: platypus-dgm
+count: 10000
+method: grid
+
+# Change the name of the run to [in_distribution_dataset]_vs_[out_of_distribution_dataset]_[run_name]
+# using the dysweep name changer for better readability
+run_name_changer:
+  expression: |
+    from meta_configurations import *
+  function_of_interest: ood_run_name_changer
+
+# BASE configuration which is being used
+base_config:
+  data:
+    # specify the datasets and dataloader configurations for the in and out of distribution data.
+    in_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: train
+    out_of_distribution:
+      dataloader_args:
+        make_valid_loader: false
+      pick_loader: test
+  ood:
+    # bypass the entire visualization process since there is no need to plot the histograms that take time!
+    bypass_visualization: True
+    
+    # for reproducibility
+    seed: 100
+    
+    # The OOD detection method in use
+    method: ood.methods.intrinsic_dimension.FlowIntrinsicDimensionOODDetection
+    method_args:
+      checkpointing_buffer: 16
+
+      # Fast-LIDL-NF
+      intrinsic_dimension_calculator_args:
+        encoding_model_class: ood.methods.intrinsic_dimension.EncodingFlow
+        encoding_model_args:
+          use_functorch: True 
+          use_forward_mode: True
+          use_vmap: False
+          chunk_size: 1
+          verbose: 2
+          # control whether the encoding model also handles the data transform
+          diff_transform: False
+        # verbosity
+        verbose: 0
+      
+      # for logging args
+      verbose: 2
+      
+      
+      
+sweep_configuration:
+
+  dy__upsert:
+    - sweep: True
+      sweep_identifier: B_in_distribution_model
+      sweep_alias:
+        # colorful flows
+        - flow_cifar10_RQ_NSF
+        - flow_svhn_RQ_NSF
+        - flow_cifar100_RQ_NSF
+        - flow_tiny_RQ_NSF
+        - flow_celeba_small_RQ_NSF
+      values:
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar10_heteronomous_owjcfa1x_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar10
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+          ood:
+            method_args:
+              given_mean_lid: 193 # obtained by LPCA with threshold 0.001
+              # given_mean_lid: 27.318780602419388 # obtained by ESS
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_svhn_hittitics_znujejsh_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: svhn
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+          ood:
+            method_args:
+              given_mean_lid: 60 # obtained by LPCA with threshold 0.001
+              # given_mean_lid: 18.416391939702326 # obtained by ESS 
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar100_unindigenous_42n5ww2b_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_cifar100_unindigenous_42n5ww2b_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: cifar100
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+          ood:
+            method_args:
+              given_mean_lid: 165 # obtained by LPCA with threshold 0.001
+              # given_mean_lid: 25.018780602419388 # obtained by ESS 
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_tiny-imagenet_directors_zk9ezaia_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_tiny-imagenet_directors_zk9ezaia_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: tiny-imagenet
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+          ood:
+            method_args:
+              given_mean_lid: 207 # obtained by LPCA with threshold 0.001
+              # given_mean_lid: 25.686641957998646 # obtained by ESS
+        
+        - base_model:
+            config_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_celeba-small_loculose_8fvoxku1_final/run_config.json
+            checkpoint_dir: checkpoints-zei1ialy/PiecewiseRationalQuadraticCouplingTransform_celeba-small_loculose_8fvoxku1_final/checkpoints/de_nf_best_valid.pt
+          data:
+            in_distribution:
+              dataloader_args:
+                dataset: celeba-small
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+            out_of_distribution:
+              dataloader_args:
+                train_batch_size: 8
+                valid_batch_size: 8
+                test_batch_size: 8
+          ood:
+            method_args:
+              given_mean_lid: 169 # obtained by LPCA with threshold 0.001
+              # given_mean_lid: 17.449080638985365 # obtained by ESS
+        
+    - sweep: True
+      sweep_identifier: C_ood_picker
+      sweep_alias:
+      - generated
+      - svhn
+      - cifar10
+      - celeba-small
+      - celeba
+      - tiny-imagenet
+      - cifar100
+      values:
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dy__eval:
+                expression: |
+                  from meta_configurations import get_generated_config
+
+                  def pick_generated(conf):
+                    return get_generated_config(conf)
+
+                function_of_interest: pick_generated
+
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: svhn
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: cifar10
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: celeba-small
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: celeba
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: tiny-imagenet
+      - data:
+          out_of_distribution:
+            dataloader_args:
+              dataset: cifar100
+
+    - sweep: True
+      sweep_identifier: Z_inner_calculator
+      sweep_alias:
+        - thresholding
+        - taylor_approximation
+      values:
+        - ood:
+            method_args:
+              submethod: thresholding
+        - ood:
+            method_args:
+              submethod: taylor_approximation
+    - sweep: True
+      sweep_identifier: Y_r_selection
+      sweep_alias:
+        - fixed
+        - percentile
+        - LPCA
+      values:
+      - ood:
+          method_args:
+            evaluate_r: -20
+            adaptive_measurement: False
+      - ood:
+          method_args:
+            adaptive_measurement: True
+            adaptive_setting_mode: percentile
+            percentile: 10
+            dimension_tolerance: 0.07
+            bin_search_iteration_count: 20
+            adaptive_train_data_buffer_size: 15
+      - ood:
+          method_args:
+            adaptive_measurement: True
+            adaptive_setting_mode: given 
+            bin_search_iteration_count: 20
+            adaptive_train_data_buffer_size: 15
+
+    - sweep: True
+      sweep_identifier: A_subsample_size # run on different subsample sizes to tradeoff speed for accuracy!
+      sweep_alias:
+      - tiny
+      - medium
+      - huge
+      values:
+      - ood:
+          use_dataloader: True
+          pick_count: 16
+      - ood:
+          use_dataloader: True
+          pick_count: 512
+      - ood:
+          use_dataloader: True
+          pick_count: 4096
+              
+    
