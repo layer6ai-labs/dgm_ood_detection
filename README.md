@@ -19,8 +19,7 @@ This repository contains our ideas to tackle this problem alongside implementati
 1. Likelihood ratio method for normalizing flows by [Ren et al.](https://arxiv.org/abs/1906.02845)
 2. Complexity method for flow models by [Serrà et al.](https://arxiv.org/abs/1909.11480)
 3. Likelihood ratio method for diffusion models by [Goodier et al.](https://arxiv.org/pdf/2310.17432.pdf) 
-4. Reconstruction-based OOD detection with diffusions by [Graham et al.](https://arxiv.org/pdf/2211.07740.pdf)
-5. Likelihood OOD detection based on LID estimates for diffusions and normalizing flows by [Kamkari et al.](TODO)
+4. Reconstruction-based OOD detection with diffusions by [Graham et al.](https://arxiv.org/pdf/2211.07740.pdf).
 
 
 ## Setup
